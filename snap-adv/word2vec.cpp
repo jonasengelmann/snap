@@ -159,7 +159,7 @@ void TrainModel(TVVec<TInt, int64>& WalksVV, const int& Dimensions,
 
 void LearnEmbeddings(TVVec<TInt, int64>& WalksVV, const int& Dimensions,
   const int& WinSize, const int& Iter, const bool& Verbose,
-  TIntFltVH& EmbeddingsHV) {
+  TIntFltVH& EmbeddingsHV, const int& RandomSeedValue, const int& NumThreads) {
   TIntIntH RnmH;
   TIntIntH RnmBackH;
   int64 NNodes = 0;
@@ -181,13 +181,13 @@ void LearnEmbeddings(TVVec<TInt, int64>& WalksVV, const int& Dimensions,
   TFltV UTable(NNodes);
   TVVec<TFlt, int64> SynNeg;
   TVVec<TFlt, int64> SynPos;
-  TRnd Rnd(time(NULL));
+  TRnd Rnd(RandomSeedValue);
   InitPosEmb(Vocab, Dimensions, Rnd, SynPos);
   InitNegEmb(Vocab, Dimensions, SynNeg);
   InitUnigramTable(Vocab, KTable, UTable);
   TFltV ExpTable(TableSize);
   double Alpha = StartAlpha;                              //learning rate
-#pragma omp parallel for schedule(dynamic)
+  #pragma omp parallel for schedule(dynamic) num_threads(NumThreads)
   for (int i = 0; i < TableSize; i++ ) {
     double Value = -MaxExp + static_cast<double>(i) / static_cast<double>(ExpTablePrecision);
     ExpTable[i] = TMath::Power(TMath::E, Value);
@@ -196,7 +196,7 @@ void LearnEmbeddings(TVVec<TInt, int64>& WalksVV, const int& Dimensions,
 // op RS 2016/09/26, collapse does not compile on Mac OS X
 //#pragma omp parallel for schedule(dynamic) collapse(2)
   for (int j = 0; j < Iter; j++) {
-#pragma omp parallel for schedule(dynamic)
+    #pragma omp parallel for schedule(dynamic) num_threads(NumThreads)
     for (int64 i = 0; i < WalksVV.GetXDim(); i++) {
       TrainModel(WalksVV, Dimensions, WinSize, Iter, Verbose, KTable, UTable,
        WordCntAll, ExpTable, Alpha, i, Rnd, SynNeg, SynPos); 
